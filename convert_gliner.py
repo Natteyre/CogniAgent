@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Zoptymalizowany skrypt konwersji modelu GLiNER 2.5 (mDeBERTa-v3) do formatu LiteRT (.tflite).
-Naprawiono obsługę niestandardowego typu architektury przy użyciu biblioteki gliner2.
+Naprawiono strukturę odwołań do obiektu BoundaryExtractor oraz wymuszono tryb eager dla DeBERTa.
 """
 
 import os
@@ -35,10 +35,12 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(args.model_id)
     tokenizer.save_pretrained(args.output_dir)
 
-    # POPRAWKA AUDYTU: Używamy dedykowanej klasy AutoExtractor z gliner2, 
-    # która bezbłędnie kompiluje niestandardowy typ "extractor"
-    gliner_model = AutoExtractor.from_pretrained(args.model_id)
-    pytorch_model = gliner_model.model
+    # POPRAWKA: Wymuszamy attn_implementation="eager" zgodnie z zaleceniem kompilatora DeBERTa
+    gliner_model = AutoExtractor.from_pretrained(args.model_id, attn_implementation="eager")
+    
+    # POPRAWKA: Sam obiekt gliner_model dziedziczy po torch.nn.Module, 
+    # nie szukamy w nim wewnętrznej zmiennej .model
+    pytorch_model = gliner_model
     pytorch_model.eval()
 
     print(f"[KROK 3/5] Eksport do formatu ONNX ze stalym rozmiarem (max_tokens={args.max_tokens})...")
@@ -55,12 +57,13 @@ def main():
             ids_i64 = input_ids.to(torch.int64)
             mask_i64 = attention_mask.to(torch.int64)
             
+            # W gliner2 wywołanie forward przyjmuje wprost tokeny i maskę uwagi
             outputs = self.core_model(
                 input_ids=ids_i64,
                 attention_mask=mask_i64,
                 return_dict=False
             )
-            return outputs[0]
+            return outputs
 
     wrapper = GlinerStaticWrapper(pytorch_model)
     
