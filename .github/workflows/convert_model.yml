@@ -9,23 +9,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Pobranie kodu źródłowego (potrzebujemy skryptu convert_gliner.py)
+    # 1. Pobranie kodu źródłowego
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    # 2. Konfiguracja stabilnej wersji Pythona 3.10
+    # 2. POPRAWKA: Konfiguracja Pythona bez wymuszania szukania plików requirements.txt
     - name: Set up Python 3.10
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
-        cache: 'pip' # Przyspiesza pobieranie pakietów
 
     # 3. Instalacja zaawansowanych bibliotek ML (w tym TensorFlow, ONNX i narzędzi konwersji)
     - name: Install Machine Learning Dependencies
       run: |
         python -m pip install --upgrade pip
         pip install torch transformers onnx tensorflow gliner
-        pip install onnx2tf --no-deps # Instalacja bez konfliktów zależności
+        pip install onnx2tf --no-deps
         pip install huggingface_hub
 
     # 4. Uruchomienie skryptu konwersji (generuje pliki w katalogu ./gliner_output)
@@ -40,4 +39,5 @@ jobs:
         path: |
           gliner_output/gliner_2.5_fp16.tflite
           gliner_output/tokenizer.json
-        retention-days: 3 # Pliki ważą dużo, więc przechowujemy je przez 3 dni
+        retention-days: 3
+
