@@ -35,22 +35,26 @@ jobs:
     - name: Setup Gradle Cache
       uses: gradle/actions/setup-gradle@v4
 
-    # 6. Tworzenie atrap (placeholders) plików konfiguracyjnych środowiska
+    # 6. ROZWIĄZANIE: Wyłączenie KSP2 w pliku properties, aby naprawić błąd wątku AWT na serwerze CI
+    - name: Fix KSP2 CI Bug
+      run: |
+        echo "ksp.useKSP2=false" >> gradle.properties
+
+    # 7. Tworzenie atrap (placeholders) plików konfiguracyjnych środowiska
     - name: Create Environment Secrets Placeholders
       run: |
         touch .env
         echo "GEMINI_API_KEY=ci_build_dummy_placeholder_key" >> .env
         touch debug.keystore
 
-    # 7. POPRAWKA: Pomijamy wadliwy test i przechodzimy bezpośrednio do kompilacji APK
+    # 8. Kompilacja właściwa – Generowanie instalacyjnego pliku APK (Z pominięciem testów)
     - name: Build Debug APK
-      run: ./gradlew assembleDebug
+      run: ./gradlew assembleDebug --no-daemon
 
-    # 8. Wypchnięcie gotowego pliku .apk jako bezpiecznego artefaktu GitHub Actions
+    # 9. Wypchnięcie gotowego pliku .apk jako bezpiecznego artefaktu GitHub Actions
     - name: Upload Finished APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: CogniAgent-Android-Install-APK
         path: app/build/outputs/apk/debug/app-debug.apk
         retention-days: 7
-
