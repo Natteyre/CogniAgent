@@ -1,0 +1,43 @@
+name: Konwersja Modelu GLiNER do TFLite
+
+on:
+  workflow_dispatch: # Pozwala na ręczne uruchomienie skryptu w panelu GitHub Actions
+
+jobs:
+  convert:
+    name: Pobieranie i Kompilacja Modelu AI
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Pobranie kodu źródłowego (potrzebujemy skryptu convert_gliner.py)
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # 2. Konfiguracja stabilnej wersji Pythona 3.10
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip' # Przyspiesza pobieranie pakietów
+
+    # 3. Instalacja zaawansowanych bibliotek ML (w tym TensorFlow, ONNX i narzędzi konwersji)
+    - name: Install Machine Learning Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install torch transformers onnx tensorflow gliner
+        pip install onnx2tf --no-deps # Instalacja bez konfliktów zależności
+        pip install huggingface_hub
+
+    # 4. Uruchomienie skryptu konwersji (generuje pliki w katalogu ./gliner_output)
+    - name: Run Conversion Script
+      run: python convert_gliner.py
+
+    # 5. Spakowanie i eksport gotowych plików (.tflite i tokenizer.json) jako artefaktu
+    - name: Upload Finished Model Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Gliner-2.5-Android-Models
+        path: |
+          gliner_output/gliner_2.5_fp16.tflite
+          gliner_output/tokenizer.json
+        retention-days: 3 # Pliki ważą dużo, więc przechowujemy je przez 3 dni
