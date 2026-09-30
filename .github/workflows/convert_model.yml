@@ -17,21 +17,25 @@ jobs:
       with:
         python-version: '3.10'
 
-    # POPRAWKA: Instalujemy stabilne wersje bazowe bez konfliktowego onnx2tf
+    # POPRAWKA: Instalujemy optimum wraz z oficjalnym rozszerzeniem dla onnxruntime
+    # Zapobiega to brakom sub-komend w interfejsie CLI Optimum
+     Riedel:
     - name: Install Stable Machine Learning Dependencies
       run: |
         python -m pip install --upgrade pip
         pip install torch --extra-index-url https://pytorch.org
         pip install tensorflow-cpu
-        pip install transformers gliner2 huggingface_hub peft accelerate optimum onnxruntime
+        pip install transformers gliner2 huggingface_hub peft accelerate onnxruntime
+        pip install "optimum[onnxruntime]"
 
     - name: Run Preparation Script
       run: python convert_gliner.py
 
-    # Zaawansowany automatyczny eksport architektury DeBERTa bezpośrednio przez narzędzia Hugging Face (Optimum)
-    - name: Export Model to Static ONNX via Optimum
+    # POPRAWKA: Uruchamiamy eksport bezposrednio przez modul python -m optimum.exporters.onnx
+    # Omija to ograniczenia i zmiany w argumentach interfejsu optimum-cli
+    - name: Export Model to Static ONNX via Optimum Module
       run: |
-        optimum-cli export onnx --model fastino/gliner2.5-multi-v1 --task feature-extraction gliner_output/saved_model/
+        python -m optimum.exporters.onnx --model fastino/gliner2.5-multi-v1 --task feature-extraction gliner_output/saved_model/
 
     # Kompilacja finalna do formatu LiteRT (.tflite) z precyzją FP16
     - name: Compile ONNX to LiteRT FP16
@@ -50,7 +54,7 @@ jobs:
                     f.write(tflite_model)
                 print('Kompilacja TFLite zakonczona sukcesem!')
             except Exception as e:
-                print('Blad kompilacji, przesylam plik holdingowy: ' + str(e))
+                print('Blad kompilacji, opis: ' + str(e))
         "
 
     - name: Upload Finished Model Artifacts
@@ -61,6 +65,3 @@ jobs:
           gliner_output/gliner_2.5_fp16.tflite
           gliner_output/tokenizer.json
         retention-days: 3
-
-
-
