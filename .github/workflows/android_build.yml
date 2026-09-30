@@ -42,13 +42,14 @@ jobs:
         echo "ksp.run.in.process=false" >> gradle.properties
         echo "ksp.incremental=false" >> gradle.properties
 
-    # 7. POPRAWKA: Usunięto wadliwą atrapę debug.keystore
-    - name: Create Environment Secrets Placeholders
+    # 7. POPRAWKA: Generowanie prawdziwego pliku debug.keystore wymaganego przez build.gradle.kts
+    - name: Generate Valid Debug Keystore
       run: |
+        keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
         touch .env
         echo "GEMINI_API_KEY=ci_build_dummy_placeholder_key" >> .env
 
-    # 8. POPRAWKA: Kompilacja z automatycznym generowaniem klucza przez Android SDK
+    # 8. Kompilacja właściwa – Budowanie pliku APK
     - name: Build Debug APK
       run: ./gradlew assembleDebug --no-daemon -Dorg.gradle.workers.max=2
 
