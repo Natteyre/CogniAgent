@@ -40,3 +40,4 @@ jobs:
           gliner_output/gliner_2.5_fp16.tflite
           gliner_output/tokenizer.json
         retention-days: 3
+
