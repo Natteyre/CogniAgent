@@ -3,6 +3,8 @@ package com.example.aiagent
 import android.content.Context
 import android.content.res.AssetFileDescriptor
 import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.tensorflow.lite.Interpreter
 import java.io.FileInputStream
 import java.nio.ByteBuffer
@@ -80,6 +82,13 @@ class GlinerAgent(private val context: Context) {
     }
 
     /**
+     * Asynchronous intent extraction to ensure the microphone/main thread is never blocked.
+     */
+    suspend fun predictIntentAsync(text: String): AgentIntent = withContext(Dispatchers.Default) {
+        extractIntent(text)
+    }
+
+    /**
      * Extracts structured intent and parameters from user speech input in Polish.
      */
     fun extractIntent(text: String): AgentIntent {
@@ -154,7 +163,10 @@ class GlinerAgent(private val context: Context) {
         val searchQuery = entities.firstOrNull { it.label == "search_query" }?.text
         val factContent = entities.firstOrNull { it.label == "fact_content" }?.text
 
+        // Extract integer value from string digits or Polish words
         val settingVal = settingValueStr?.filter { it.isDigit() }?.toIntOrNull()
+            ?: (if (!settingValueStr.isNullOrBlank()) PolishWordToNumberParser.extractNumberFromText(settingValueStr) else null)
+            ?: PolishWordToNumberParser.extractNumberFromText(originalText)
 
         if (targetApp != null || action?.contains("otwórz") == true || action?.contains("uruchom") == true) {
             return AgentIntent(

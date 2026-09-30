@@ -126,8 +126,8 @@ class HybridAgentManager(private val context: Context) {
         addHistory("Użytkownik", text)
 
         scope.launch(Dispatchers.IO) {
-            // STEP 1: GLiNER 2.5 NLU Intent Extraction
-            val intent = glinerAgent.extractIntent(text)
+            // STEP 1: GLiNER 2.5 NLU Intent Extraction (Asynchronous & Non-blocking)
+            val intent = glinerAgent.predictIntentAsync(text)
             Log.i(tag, "GLiNER Classified Intent: ${intent.intentType}")
 
             _uiState.value = _uiState.value.copy(lastIntent = intent.intentType)
