@@ -1,0 +1,56 @@
+name: Kompilacja CogniAgent APK
+
+on:
+  push:
+    branches: [ "main", "master" ] # Uruchamia proces po każdym pushu
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    name: Budowanie i Testowanie Aplikacji
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Pobranie kodu źródłowego z repozytorium
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # 2. Skonfigurowanie środowiska Java (Wymagane JDK 17 dla Gradle 9.x i Androida 16)
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'zulu'
+
+    # 3. Zaawansowane buforowanie Gradle (Skraca czas kolejnych kompilacji o ok. 80%)
+    - name: Setup Gradle Cache
+      uses: gradle/actions/setup-gradle@v4
+
+    # 4. Nadanie uprawnień wykonywalnych dla skryptu budującego Gradle wrapper
+    - name: Grant Execute Permission for Gradlew
+      run: chmod +x gradlew
+
+    # 5. Tworzenie atrap (placeholders) plików konfiguracyjnych
+    # Zapobiega to przerwaniu kompilacji z powodu braku lokalnych kluczy / plików .env
+    - name: Create Environment Secrets Placeholders
+      run: |
+        touch .env
+        echo "GEMINI_API_KEY=ci_build_dummy_placeholder_key" >> .env
+        touch debug.keystore
+
+    # 6. Uruchomienie testów jednostkowych (JUnit + Robolectric zadeklarowane w libs.versions.toml)
+    - name: Run Robolectric and Unit Tests
+      run: ./gradlew testDebugUnitTest
+
+    # 7. Kompilacja właściwa – Generowanie instalacyjnego pliku APK (Wersja Debug)
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug
+
+    # 8. Wypchnięcie gotowego pliku .apk jako bezpiecznego artefaktu GitHub Actions
+    - name: Upload Finished APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: CogniAgent-Android-Install-APK
+        path: app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 7 # Plik będzie dostępny do pobrania z chmury przez tydzień
