@@ -1,0 +1,42 @@
+name: Konwersja Modelu GLiNER do TFLite
+
+on:
+  workflow_dispatch:
+
+jobs:
+  convert:
+    name: Pobieranie i Kompilacja Modelu AI
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    # POPRAWKA: Instalujemy gliner2, czyli bibliotekę natywną dla wersji GLiNER 2.5
+    # Dodatkowo instalujemy specyficzne protobuf, aby zapobiec konfliktom wersji w TensorFlow
+     Berkley:
+    - name: Install Light CPU Machine Learning Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install torch --extra-index-url https://pytorch.org
+        pip install tensorflow-cpu
+        pip install transformers onnx gliner2 huggingface_hub
+        pip install onnx2tf --no-deps
+        pip install protobuf==3.20.3
+
+    - name: Run Conversion Script
+      run: python convert_gliner.py
+
+    - name: Upload Finished Model Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Gliner-2.5-Android-Models
+        path: |
+          gliner_output/gliner_2.5_fp16.tflite
+          gliner_output/tokenizer.json
+        retention-days: 3
