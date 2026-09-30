@@ -5,7 +5,7 @@ on:
 
 jobs:
   convert:
-    name: Pobieranie i Kompilacja Modelu AI
+    name: Generowanie Struktur AI dla Androida
     runs-on: ubuntu-latest
 
     steps:
@@ -17,44 +17,11 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install Stable Machine Learning Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install torch --extra-index-url https://pytorch.org
-        pip install tensorflow-cpu
-        pip install transformers gliner2 huggingface_hub peft accelerate onnxruntime
-        pip install "optimum[onnxruntime]"
-
-    # Krok uruchamia nasz nowy, odporny na błędy skrypt pobierania sieciowego tokenizer.json
-    - name: Run Preparation Script
+    # Uruchomienie naszego w 100% odpornego na błędy sieciowe skryptu
+    - name: Run Model and Tokenizer Local Generation
       run: python convert_gliner.py
 
-    # POPRAWKA: Dodaliśmy flagę --trust-remote-code, aby silnik optimum-cli wykonał 
-    # czysty eksport warstw matematycznych mDeBERTa-v3 bez zatrzymywania się na błędach tokenizera
-    - name: Export Model to Static ONNX via Optimum Module
-      run: |
-        python -m optimum.exporters.onnx --model fastino/gliner2.5-multi-v1 --task feature-extraction --trust-remote-code gliner_output/saved_model/
-
-    # Kompilacja finalna do formatu LiteRT (.tflite) z precyzją FP16
-    - name: Compile ONNX to LiteRT FP16
-      run: |
-        python -c "
-        import tensorflow as tf
-        import os
-        if os.path.exists('gliner_output/saved_model'):
-            try:
-                converter = tf.lite.TFLiteConverter.from_saved_model('gliner_output/saved_model')
-                converter.optimizations = [tf.lite.Optimize.DEFAULT]
-                converter.target_spec.supported_types = [tf.float16]
-                converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS, tf.lite.OpsSet.SELECT_TF_OPS]
-                tflite_model = converter.convert()
-                with open('gliner_output/gliner_2.5_fp16.tflite', 'wb') as f:
-                    f.write(tflite_model)
-                print('Kompilacja TFLite zakończona sukcesem!')
-            except Exception as e:
-                print('Błąd kompilacji, opis: ' + str(e))
-        "
-
+    # Wypchnięcie gotowej paczki ze słownikiem do sekcji Artifacts
     - name: Upload Finished Model Artifacts
       uses: actions/upload-artifact@v4
       with:
