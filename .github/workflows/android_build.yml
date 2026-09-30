@@ -35,10 +35,12 @@ jobs:
     - name: Setup Gradle Cache
       uses: gradle/actions/setup-gradle@v4
 
-    # 6. POPRAWKA: Włączamy KSP2, ale konfigurujemy go w trybie bezpiecznym dla serwerów bez ekranu (headless)
+    # 6. POPRAWKA: Wymuszamy uruchomienie KSP2 w osobnym procesie JVM (Headless Mode)
     - name: Configure Headless KSP2 for CI Environment
       run: |
         echo "ksp.useKSP2=true" >> gradle.properties
+        echo "ksp.run.in.process=false" >> gradle.properties
+        echo "ksp.incremental=false" >> gradle.properties
 
     # 7. Tworzenie atrap (placeholders) plików konfiguracyjnych środowiska
     - name: Create Environment Secrets Placeholders
@@ -47,7 +49,7 @@ jobs:
         echo "GEMINI_API_KEY=ci_build_dummy_placeholder_key" >> .env
         touch debug.keystore
 
-    # 8. Kompilacja właściwa – Wyłączamy demony kompilacji, aby uniknąć błędów AWT IntelliJ
+    # 8. Kompilacja właściwa – Budowanie pliku APK z izolacją wątków procesora
     - name: Build Debug APK
       run: ./gradlew assembleDebug --no-daemon -Dorg.gradle.workers.max=2
 
