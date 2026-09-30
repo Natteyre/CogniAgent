@@ -1,0 +1,6 @@
+{
+  "name": "CogniAgent",
+  "description": "Rootless Cognitive Voice Agent for Android 10+ with local GLiNER 2.5 NLU, offline MediaPipe LLM, and online tools.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

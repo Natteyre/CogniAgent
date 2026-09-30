@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">CogniAgent</string>
+    <string name="accessibility_service_description">CogniAgent Rootless Accessibility Service to assist with screen navigation, app launching, and system interactions.</string>
+</resources>
