@@ -23,9 +23,9 @@ jobs:
         java-version: '17'
         distribution: 'zulu'
 
-    # 3. POPRAWKA: Automatyczne wygenerowanie brakującego pliku gradlew w środowisku CI
-    - name: Generate Missing Gradle Wrapper
-      run: gradle wrapper --gradle-version 8.7
+    # 3. POPRAWKA: Automatyczne wygenerowanie właściwej wersji Gradle 9.3.1 wymaganej przez AGP 9.1.1
+    - name: Generate Correct Gradle Wrapper
+      run: gradle wrapper --gradle-version 9.3.1
 
     # 4. Nadanie uprawnień wykonywalnych dla nowo utworzonego skryptu gradlew
     - name: Grant Execute Permission for Gradlew
