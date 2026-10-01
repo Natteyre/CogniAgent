@@ -28,8 +28,7 @@ class GlinerAgent(private val context: Context) {
         val settingName: String? = null,
         val settingValue: Int? = null,
         val searchQuery: String? = null,
-        val memoryFact: String? = null,
-        val rawEntities: List<GlinerOutputParser.RecognizedEntity> = emptyList()
+        val memoryFact: String? = null
     )
 
     init {
@@ -48,7 +47,7 @@ class GlinerAgent(private val context: Context) {
                 ortSession = ortEnv.createSession(modelFile.absolutePath, options)
                 Log.i(tag, "Sukces! Silnik ONNX Runtime poprawnie załadował model GLiNER.")
             } else {
-                Log.w(tag, "Plik gliner_static.onnx nie został znaleziony w files/. Aktywny fallback lingwistyczny.")
+                Log.w(tag, "Plik gliner_static.onnx nie został znaleziony. Aktywny fallback lingwistyczny.")
             }
         } catch (e: Exception) {
             Log.e(tag, "Błąd inicjalizacji ONNX Runtime: ${e.message}", e)
@@ -62,7 +61,6 @@ class GlinerAgent(private val context: Context) {
             val tokenized = tokenizer.encode(text, defaultLabels)
             val numLabels = defaultLabels.size
 
-            // Alokacja buforów bezpośrednio w formacie Int (INT32) dla ONNX
             val inputIdsBuffer = IntBuffer.wrap(tokenized.inputIds)
             val attentionMaskBuffer = IntBuffer.wrap(tokenized.attentionMask)
             val inputShape = longArrayOf(1, maxTokens.toLong())
@@ -77,17 +75,14 @@ class GlinerAgent(private val context: Context) {
 
             session.execute(inputs).use { results ->
                 val outputTensor = results.get(0) as OnnxTensor
-                
-                // POPRAWKA: Bezbłędne spłaszczanie trójwymiarowej macierzy logitów ONNX
-                // Zgodnie ze specyfikacją Optimum: [batch_size (1), seq_len (128), hidden_dim]
                 val tokenOutputs = outputTensor.value as Array<Array<FloatArray>>
                 val flatLogits = FloatArray(maxTokens * numLabels)
                 
                 var idx = 0
                 for (i in 0 until maxTokens) {
                     for (l in 0 until numLabels) {
-                        if (idx < flatLogits.size && l < tokenOutputs[0][i].size) {
-                            flatLogits[idx] = tokenOutputs[0][i][l]
+                        if (idx < flatLogits.size && l < tokenOutputs[i].size) {
+                            flatLogits[idx] = tokenOutputs[i][l]
                             idx++
                         }
                     }
@@ -103,7 +98,7 @@ class GlinerAgent(private val context: Context) {
                 }
             }
         } catch (e: Exception) {
-            Log.e(tag, "Błąd ONNX Runtime podczas wnioskowania: ${e.message}", e)
+            Log.e(tag, "Błąd ONNX Runtime: ${e.message}", e)
         }
 
         return@withContext ruleBasedPolishParser(text)
@@ -113,7 +108,7 @@ class GlinerAgent(private val context: Context) {
         entities: List<GlinerOutputParser.RecognizedEntity>,
         originalText: String
     ): AgentIntent {
-        var action = entities.firstOrNull { it.label == "action" }?.text?.lowercase()
+        val action = entities.firstOrNull { it.label == "action" }?.text?.lowercase()
         val targetApp = entities.firstOrNull { it.label == "target_app" }?.text
         val contact = entities.firstOrNull { it.label == "contact" }?.text
         val message = entities.firstOrNull { it.label == "message" }?.text
@@ -121,19 +116,19 @@ class GlinerAgent(private val context: Context) {
         val settingValueStr = entities.firstOrNull { it.label == "setting_value" }?.text
         val searchQuery = entities.firstOrNull { it.label == "search_query" }?.text
         val settingVal = settingValueStr?.filter { it.isDigit() }?.toIntOrNull()
-            ?: (if (!settingValueStr.isNullOrBlank()) PolishWordToNumberParser.extractNumberFromText(settingValueStr) else null)
+            ?: if (!settingValueStr.isNullOrBlank()) PolishWordToNumberParser.extractNumberFromText(settingValueStr) else null
 
         if (targetApp != null || action?.contains("otwórz") == true || action?.contains("uruchom") == true) {
-            return AgentIntent(intentType = "OPEN_APP", targetApp = targetApp ?: extractAppNameFallback(originalText), rawEntities = entities)
+            return AgentIntent(intentType = "OPEN_APP", targetApp = targetApp ?: extractAppNameFallback(originalText))
         }
         if (contact != null || action?.contains("napisz") == true || action?.contains("wyślij") == true) {
-            return AgentIntent(intentType = "SEND_SMS", contact = contact, messageText = message, rawEntities = entities)
+            return AgentIntent(intentType = "SEND_SMS", contact = contact, messageText = message)
         }
         if (settingName != null || action?.contains("głośność") == true || action?.contains("jasność") == true) {
-            return AgentIntent(intentType = "ADJUST_SETTING", settingName = settingName ?: if (originalText.contains("jasność", ignoreCase = true)) "BRIGHTNESS" else "VOLUME", settingValue = settingVal, rawEntities = entities)
+            return AgentIntent(intentType = "ADJUST_SETTING", settingName = settingName ?: if (originalText.contains("jasność", ignoreCase = true)) "BRIGHTNESS" else "VOLUME", settingValue = settingVal)
         }
         if (searchQuery != null || action?.contains("szukaj") == true || action?.contains("wyszukaj") == true) {
-            return AgentIntent(intentType = "WEB_SEARCH", searchQuery = searchQuery ?: originalText, rawEntities = entities)
+            return AgentIntent(intentType = "WEB_SEARCH", searchQuery = searchQuery ?: originalText)
         }
         return ruleBasedPolishParser(originalText)
     }
@@ -182,4 +177,3 @@ class GlinerAgent(private val context: Context) {
         ortSession = null
     }
 }
-
