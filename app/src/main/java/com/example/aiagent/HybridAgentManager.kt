@@ -160,7 +160,6 @@ class HybridAgentManager(private val context: Context) {
                     val summaryPrompt = "Użytkownik pyta: \"$text\". Wyniki z sieci:\n$searchResults\nOdpowiedz zwięźle i naturalnie po polsku."
                     generateLlmResponse(summaryPrompt, injectMemory = false)
                 }
-                // POPRAWKA: Tryb ogólny (else) jest teraz poprawnie na samym dole instrukcji when
                 else -> generateLlmResponse(text, injectMemory = true)
             }
         }
@@ -199,6 +198,7 @@ class HybridAgentManager(private val context: Context) {
         for (call in toolCalls) {
             val toolResult = try {
                 val args = JsonParser.parseString(call.argumentsJson).asJsonObject
+                // POPRAWKA: Bezbłędna składnia przypisań '->' dla wywołań metod narzędziowych
                 when (call.functionName) {
                     "web_search" -> tools.executeWebSearch(args.get("query").asString)
                     "read_file" -> tools.executeReadFile(args.get("fileName").asString)
