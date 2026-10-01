@@ -140,7 +140,7 @@ class HybridAgentManager(private val context: Context) {
                 "QUERY_MEMORY" -> {
                     val query = intent.searchQuery ?: text
                     val facts = memoryManager.searchFacts(query)
-                    val response = if (facts.isNotEmpty()) "Znalazłem w pamięci: " + facts.joinToString("; ") { it.factContent } else "Nie znalazłem w pamięci żadnych informacji o: $query."
+                    val response = if (facts.isNotEmpty()) "Znalazłem w pamięci: " + facts.joinToString("; ") { it.factContent } else "Nie znaleziono informacji o: $query."
                     respondAndSpeak(response)
                 }
                 "SEND_SMS" -> {
@@ -157,7 +157,7 @@ class HybridAgentManager(private val context: Context) {
                 "WEB_SEARCH" -> {
                     val query = intent.searchQuery ?: text
                     val searchResults = tools.executeWebSearch(query)
-                    val summaryPrompt = "Użytkownik pyta: \"$text\". Wyniki z sieci:\n$searchResults\nOdpowiedz zwięźle i naturalnie po polsku."
+                    val summaryPrompt = "Użytkownik pyta: \"$text\". Wyniki z sieci:\n$searchResults\nOdpowiedz po polsku."
                     generateLlmResponse(summaryPrompt, injectMemory = false)
                 }
                 else -> generateLlmResponse(text, injectMemory = true)
@@ -198,14 +198,14 @@ class HybridAgentManager(private val context: Context) {
         for (call in toolCalls) {
             val toolResult = try {
                 val args = JsonParser.parseString(call.argumentsJson).asJsonObject
-                // POPRAWKA: Bezbłędna składnia przypisań '->' dla wywołań metod narzędziowych
                 when (call.functionName) {
                     "web_search" -> tools.executeWebSearch(args.get("query").asString)
                     "read_file" -> tools.executeReadFile(args.get("fileName").asString)
-"write_file" -> tools.executeWriteFile(args.get("fileName").asString, args.get("content").asString)
-"save_user_fact" -> {
+                    "write_file" -> tools.executeWriteFile(args.get("fileName").asString, args.get("content").asString)
+
+                "save_user_fact" -> {
 memoryManager.saveFact(args.get("category").asString, args.get("fact").asString)
-"Fakt został pomyślnie zapisany."
+"Fakt został zapisany."
 }
 "open_application" -> {
 val opened = AgentAccessibilityService.instance?.executeOpenApp(args.get("appName").asString) ?: false
@@ -230,7 +230,7 @@ val lower = prompt.lowercase()
 return when {
 lower.contains("kim jeste") -> "Jestem CogniAgent, Twoim lokalnym asystentem głosowym."
 lower.contains("godzina") || lower.contains("ktra jest") -> "Aktualna godzina to " + java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
-else -> "Otrzymałem polecenie: "$prompt". Skonfiguruj API w ustawieniach lub wgraj model lokalny."
+else -> "Otrzymałem polecenie: "$prompt"."
 }
 }
 private fun respondAndSpeak(text: String) {
@@ -253,3 +253,4 @@ glinerAgent.close()
 localClient.close()
 }
 }
+
