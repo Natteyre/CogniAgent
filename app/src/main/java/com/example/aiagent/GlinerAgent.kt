@@ -42,7 +42,7 @@ class GlinerAgent(private val context: Context) {
 
             if (modelFile.exists() && modelFile.length() > 0) {
                 val options = OrtSession.SessionOptions().apply {
-                    setIntraOpNumThreads(4) // 4 wątki dla Kirina 980
+                    setIntraOpNumThreads(4)
                 }
                 ortSession = ortEnv.createSession(modelFile.absolutePath, options)
                 Log.i(tag, "Sukces! Silnik ONNX Runtime poprawnie załadował model GLiNER.")
@@ -65,7 +65,6 @@ class GlinerAgent(private val context: Context) {
             val attentionMaskBuffer = IntBuffer.wrap(tokenized.attentionMask)
             val inputShape = longArrayOf(1, maxTokens.toLong())
 
-            // POPRAWKA: Prawidłowe i jawne tworzenie tensorów dla mobilnego ONNX Runtime API
             val inputIdsTensor = OnnxTensor.createTensor(ortEnv, inputIdsBuffer, inputShape)
             val attentionMaskTensor = OnnxTensor.createTensor(ortEnv, attentionMaskBuffer, inputShape)
 
@@ -77,8 +76,6 @@ class GlinerAgent(private val context: Context) {
             session.execute(inputs).use { results ->
                 if (results.count() > 0) {
                     val outputTensor = results.get(0) as OnnxTensor
-                    
-                    // POPRAWKA: Bezpieczne wyciąganie generycznej wartości i rzutowanie na tablicę 3D z Optimum
                     val rawValue = outputTensor.value
                     if (rawValue is Array<*>) {
                         val tokenOutputs = rawValue as Array<Array<FloatArray>>
@@ -87,9 +84,8 @@ class GlinerAgent(private val context: Context) {
                         var idx = 0
                         for (i in 0 until maxTokens) {
                             for (l in 0 until numLabels) {
-                                if (idx < flatLogits.size && l < tokenOutputs[0][i].size) {
-                                    // Mapowanie wyjścia Optimum dla Feature Extraction
-                                    flatLogits[idx] = tokenOutputs[0][i][l]
+                                if (idx < flatLogits.size && l < tokenOutputs[i].size) {
+                                    flatLogits[idx] = tokenOutputs[i][l]
                                     idx++
                                 }
                             }
@@ -124,8 +120,10 @@ class GlinerAgent(private val context: Context) {
         val settingName = entities.firstOrNull { it.label == "setting_name" }?.text
         val settingValueStr = entities.firstOrNull { it.label == "setting_value" }?.text
         val searchQuery = entities.firstOrNull { it.label == "search_query" }?.text
-        val settingVal = settingValueStr?.filter { it.isDigit() }?.toIntOrNull()
-            ?: if (!settingValueStr.isNullOrBlank()) PolishWordToNumberParser.extractNumberFromText(settingValueStr) else null
+        
+        // POPRAWKA: Rygorystyczne rzutowanie typu wyjściowego na czystą zmienną Int? dla kompilatora Kotlina
+        val parsedInt: Int? = settingValueStr?.filter { it.isDigit() }?.toIntOrNull()
+        val settingVal: Int? = parsedInt ?: if (!settingValueStr.isNullOrBlank()) PolishWordToNumberParser.extractNumberFromText(settingValueStr) else null
 
         if (targetApp != null || action?.contains("otwórz") == true || action?.contains("uruchom") == true) {
             return AgentIntent(intentType = "OPEN_APP", targetApp = targetApp ?: extractAppNameFallback(originalText))
