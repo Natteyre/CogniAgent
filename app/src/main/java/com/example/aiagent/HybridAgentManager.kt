@@ -230,7 +230,7 @@ val lower = prompt.lowercase()
 return when {
 lower.contains("kim jeste") -> "Jestem CogniAgent, Twoim lokalnym asystentem głosowym."
 lower.contains("godzina") || lower.contains("ktra jest") -> "Aktualna godzina to " + java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
-else -> "Otrzymałem polecenie: "$prompt"."
+else -> "Otrzymałem polecenie: \"$prompt\"."
 }
 }
 private fun respondAndSpeak(text: String) {

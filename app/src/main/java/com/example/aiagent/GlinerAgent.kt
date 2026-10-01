@@ -73,34 +73,58 @@ class GlinerAgent(private val context: Context) {
                 "attention_mask" to attentionMaskTensor
             )
 
-            session.execute(inputs).use { results ->
-                if (results.count() > 0) {
-                    val outputTensor = results.get(0) as OnnxTensor
-                    val rawValue = outputTensor.value
-                    if (rawValue is Array<*>) {
-                        val tokenOutputs = rawValue as Array<Array<FloatArray>>
+            var recognizedEntities: List<GlinerOutputParser.RecognizedEntity> = emptyList()
+            session.run(inputs).use { results ->
+                if (results.size() > 0) {
+                    val outputTensor = results.get(0) as? OnnxTensor
+                    val rawValue = outputTensor?.value
+                    if (rawValue is Array<*> && rawValue.isNotEmpty()) {
                         val flatLogits = FloatArray(maxTokens * numLabels)
-                        
-                        var idx = 0
-                        for (i in 0 until maxTokens) {
-                            for (l in 0 until numLabels) {
-                                if (idx < flatLogits.size && l < tokenOutputs[i].size) {
-                                    flatLogits[idx] = tokenOutputs[i][l]
+                        val firstElem = rawValue[0]
+                        if (firstElem is Array<*>) {
+                            // Shape [batch, seqLen, numLabels]
+                            @Suppress("UNCHECKED_CAST")
+                            val batch0 = firstElem as Array<FloatArray>
+                            var idx = 0
+                            for (i in 0 until maxTokens) {
+                                for (l in 0 until numLabels) {
+                                    if (idx < flatLogits.size && i < batch0.size && l < batch0[i].size) {
+                                        flatLogits[idx] = batch0[i][l]
+                                    }
+                                    idx++
+                                }
+                            }
+                        } else if (firstElem is FloatArray) {
+                            // Shape [seqLen, numLabels]
+                            @Suppress("UNCHECKED_CAST")
+                            val seqArray = rawValue as Array<FloatArray>
+                            var idx = 0
+                            for (i in 0 until maxTokens) {
+                                for (l in 0 until numLabels) {
+                                    if (idx < flatLogits.size && i < seqArray.size && l < seqArray[i].size) {
+                                        flatLogits[idx] = seqArray[i][l]
+                                    }
                                     idx++
                                 }
                             }
                         }
 
-                        val recognizedEntities = outputParser.parseLogits(
-                            logits = flatLogits, seqLen = maxTokens, numLabels = numLabels,
-                            tokens = tokenized.tokens, labels = defaultLabels, threshold = 0.45f
+                        recognizedEntities = outputParser.parseLogits(
+                            logits = flatLogits,
+                            seqLen = maxTokens,
+                            numLabels = numLabels,
+                            tokens = tokenized.tokens,
+                            labels = defaultLabels,
+                            threshold = 0.45f
                         )
-
-                        if (recognizedEntities.isNotEmpty()) {
-                            return@withContext mapEntitiesToIntent(recognizedEntities, text)
-                        }
                     }
                 }
+            }
+            inputIdsTensor.close()
+            attentionMaskTensor.close()
+
+            if (recognizedEntities.isNotEmpty()) {
+                return@withContext mapEntitiesToIntent(recognizedEntities, text)
             }
         } catch (e: Exception) {
             Log.e(tag, "Błąd ONNX Runtime podczas wnioskowania: ${e.message}", e)
