@@ -65,6 +65,7 @@ class GlinerAgent(private val context: Context) {
             val attentionMaskBuffer = IntBuffer.wrap(tokenized.attentionMask)
             val inputShape = longArrayOf(1, maxTokens.toLong())
 
+            // POPRAWKA: Prawidłowe i jawne tworzenie tensorów dla mobilnego ONNX Runtime API
             val inputIdsTensor = OnnxTensor.createTensor(ortEnv, inputIdsBuffer, inputShape)
             val attentionMaskTensor = OnnxTensor.createTensor(ortEnv, attentionMaskBuffer, inputShape)
 
@@ -74,31 +75,39 @@ class GlinerAgent(private val context: Context) {
             )
 
             session.execute(inputs).use { results ->
-                val outputTensor = results.get(0) as OnnxTensor
-                val tokenOutputs = outputTensor.value as Array<Array<FloatArray>>
-                val flatLogits = FloatArray(maxTokens * numLabels)
-                
-                var idx = 0
-                for (i in 0 until maxTokens) {
-                    for (l in 0 until numLabels) {
-                        if (idx < flatLogits.size && l < tokenOutputs[i].size) {
-                            flatLogits[idx] = tokenOutputs[i][l]
-                            idx++
+                if (results.count() > 0) {
+                    val outputTensor = results.get(0) as OnnxTensor
+                    
+                    // POPRAWKA: Bezpieczne wyciąganie generycznej wartości i rzutowanie na tablicę 3D z Optimum
+                    val rawValue = outputTensor.value
+                    if (rawValue is Array<*>) {
+                        val tokenOutputs = rawValue as Array<Array<FloatArray>>
+                        val flatLogits = FloatArray(maxTokens * numLabels)
+                        
+                        var idx = 0
+                        for (i in 0 until maxTokens) {
+                            for (l in 0 until numLabels) {
+                                if (idx < flatLogits.size && l < tokenOutputs[0][i].size) {
+                                    // Mapowanie wyjścia Optimum dla Feature Extraction
+                                    flatLogits[idx] = tokenOutputs[0][i][l]
+                                    idx++
+                                }
+                            }
+                        }
+
+                        val recognizedEntities = outputParser.parseLogits(
+                            logits = flatLogits, seqLen = maxTokens, numLabels = numLabels,
+                            tokens = tokenized.tokens, labels = defaultLabels, threshold = 0.45f
+                        )
+
+                        if (recognizedEntities.isNotEmpty()) {
+                            return@withContext mapEntitiesToIntent(recognizedEntities, text)
                         }
                     }
                 }
-
-                val recognizedEntities = outputParser.parseLogits(
-                    logits = flatLogits, seqLen = maxTokens, numLabels = numLabels,
-                    tokens = tokenized.tokens, labels = defaultLabels, threshold = 0.45f
-                )
-
-                if (recognizedEntities.isNotEmpty()) {
-                    return@withContext mapEntitiesToIntent(recognizedEntities, text)
-                }
             }
         } catch (e: Exception) {
-            Log.e(tag, "Błąd ONNX Runtime: ${e.message}", e)
+            Log.e(tag, "Błąd ONNX Runtime podczas wnioskowania: ${e.message}", e)
         }
 
         return@withContext ruleBasedPolishParser(text)
