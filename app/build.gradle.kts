@@ -108,9 +108,8 @@ dependencies {
   // Uncomment to use Firestore:
   // implementation(libs.firebase.firestore)
 
-  // LiteRT / TensorFlow Lite & Select TF Ops
-  implementation(libs.tensorflow.lite)
-  implementation(libs.tensorflow.lite.select.tf.ops)
+ // W KLEJ W TO MIEJSCE TĘ LINIĘ (Oficjalny mobilny silnik ONNX Runtime):
+  implementation("com.microsoft.onnxruntime:onnxruntime-android:1.19.2")
 
   // Hugging Face Tokenizers (DJL)
   implementation(libs.djl.tokenizers)
