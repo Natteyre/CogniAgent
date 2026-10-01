@@ -23,7 +23,7 @@ jobs:
         java-version: '17'
         distribution: 'zulu'
 
-    # 3. Automatyczne wygenerowanie właściwej wersji Gradle 9.3.1 (Wymagane dla AGP 9.1.1)
+    # 3. Automatyczne wygenerowanie właściwej wersji Gradle 9.3.1
     - name: Generate Correct Gradle Wrapper
       run: gradle wrapper --gradle-version 9.3.1
 
@@ -35,23 +35,26 @@ jobs:
     - name: Setup Gradle Cache
       uses: gradle/actions/setup-gradle@v4
 
-    # 6. Konfiguracja przetwarzania KSP2 w trybie bezpiecznym dla serwerów bez ekranu (Headless)
-    - name: Configure Headless KSP2 for CI Environment
+    # 6. OSTATECZNA POPRAWKA: Całkowite fizyczne wykasowanie i zakaz stosowania Configuration Cache w środowisku CI
+    - name: Hard Reset and Disable Configuration Cache
       run: |
+        rm -rf .gradle/
+        echo "org.gradle.configuration-cache=false" >> gradle.properties
+        echo "org.gradle.unsafe.configuration-cache=false" >> gradle.properties
         echo "ksp.useKSP2=true" >> gradle.properties
         echo "ksp.run.in.process=false" >> gradle.properties
         echo "ksp.incremental=false" >> gradle.properties
 
-    # 7. Generowanie prawdziwego pliku debug.keystore wymaganego przez build.gradle.kts do podpisu cyfrowego
+    # 7. Generowanie prawdziwego pliku debug.keystore wymaganego przez build.gradle.kts
     - name: Generate Valid Debug Keystore
       run: |
         keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
         touch .env
         echo "GEMINI_API_KEY=ci_build_dummy_placeholder_key" >> .env
 
-    # 8. Kompilacja właściwa – Budowanie pliku APK (Z wyłączeniem testów Robolectric)
+    # 8. Kompilacja właściwa – Budowanie pliku APK od zera bez użycia demonów i cache
     - name: Build Debug APK
-      run: ./gradlew assembleDebug --no-daemon -Dorg.gradle.workers.max=2
+      run: ./gradlew assembleDebug --no-daemon --no-configuration-cache --rerun-tasks -Dorg.gradle.workers.max=2
 
     # 9. Wypchnięcie gotowego pliku .apk jako bezpiecznego artefaktu GitHub Actions do pobrania
     - name: Upload Finished APK Artifact
